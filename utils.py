@@ -5,39 +5,45 @@ import math
 import matplotlib.pylab as plt
 import numpy as np
 import torch.nn.functional as F
+from torch.autograd import Function
 
 class DiceLoss(nn.Module):
     def __init__(self) -> None:
         super(DiceLoss, self).__init__()
         self.eps: float = 1e-6
 
-    def forward(self,pred, target, weights=None, ignore_index=0):
+    def forward(self, pred, target, weights=None, ignore_index=0):
         """
         output : NxCxxDxHxW Variable
         target :  NxCxxDxHxW LongTensor
         weights : C FloatTensor
         ignore_index : int index to ignore from loss
         """
-        pred = pred.float()
-        # pred_max = pred.data.max(1)[1]
-        # one_hot_pred = to_one_hot(pred_max, target.shape[1]).cuda(0).float()
-        # one_hot_pred.requires_grad=True
-        # pred = one_hot_pred
-        pred[pred >= 0.5] = 1.
-        pred[pred < 0.5] = 0.
-        target = target.float()
-        eps = 1e-8
-        dims = (2, 3,4)
+
+        # pred = pred.float()
+        # pred[pred >= 0.5] = 1.
+        # pred[pred < 0.5] = 0.
+        # print('Pred max: '+ str(pred.max()))
+        # target = target.float()
+        eps = 1
+        dims = (2,3)
         intersection = torch.sum((pred * target), dims)
         cardinality = torch.sum((pred), dims) + torch.sum((target), dims)
         dice_score = (2. * intersection + eps) / (cardinality + eps)
-        index = torch.mean(torch.tensor(1.) - dice_score)
-        return index
+        inv = 1 - dice_score
+        return torch.mean(inv)
 
+def dice_3d(pred, target):
+    eps = 1
+    dims = (2, 3, 4)
+    intersection = torch.sum((pred * target), dims)
+    cardinality = torch.sum((pred), dims) + torch.sum((target), dims)
+    dice_score = (2. * intersection + eps) / (cardinality + eps)
+    return dice_score
 
 class Adam16(Optimizer):
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-4,
                  weight_decay=0):
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay)
